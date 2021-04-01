@@ -221,6 +221,33 @@ fork(void)
   return pid;
 }
 
+int clone(void(*fcn)(void *, void *), void *arg1, void *arg2, void *stack) {
+  struct proc *thread;
+  struct proc *parent;
+  parent = myproc();
+  if ((thread = allocproc()) == 0)
+    return -1;
+  thread->parent = parent;
+  thread->ustack = (char *)stack;
+  thread->sz = parent->sz;
+  thread->pgdir = parent->pgdir;
+  *thread->tf = *parent->tf;
+
+  for(int i = 0; i < NOFILE; i++) {
+    if (parent->ofile[i])
+      thread->ofile[i] = filedup(parent->ofile[i]);
+  }
+  thread->cwd = idup(parent->cwd);
+
+  acquire(&ptable.lock);
+  thread->state = RUNNABLE;
+  release(&ptable.lock);
+
+  return thread->pid;
+  
+
+}
+
 // Exit the current process.  Does not return.
 // An exited process remains in the zombie state
 // until its parent calls wait() to find out it exited.
