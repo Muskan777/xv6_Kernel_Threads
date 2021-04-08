@@ -227,10 +227,22 @@ int clone(void(*fcn)(void *, void *), void *arg1, void *arg2, void *stack) {
   parent = myproc();
   if ((thread = allocproc()) == 0)
     return -1;
-  thread->parent = parent;
-  thread->ustack = (char *)stack;
   thread->sz = parent->sz;
+
+  int *ustack = stack + PGSIZE;
+  *(ustack - 3) = (uint)0xffffffff;
+  *(ustack - 2) = (uint)arg1;
+  *(ustack - 1) = (uint)arg2;
+
+  thread->ustack = stack;
+
+  thread->tf->ebp = (uint)(ustack - 3);
+  thread->tf->esp = (uint)(ustack - 3);
+  thread->tf->eip = (uint)fcn;
+
   thread->pgdir = parent->pgdir;
+  thread->parent = parent;
+
   *thread->tf = *parent->tf;
 
   for(int i = 0; i < NOFILE; i++) {
@@ -238,13 +250,12 @@ int clone(void(*fcn)(void *, void *), void *arg1, void *arg2, void *stack) {
       thread->ofile[i] = filedup(parent->ofile[i]);
   }
   thread->cwd = idup(parent->cwd);
-
+  thread->isthread = 1;
   acquire(&ptable.lock);
   thread->state = RUNNABLE;
   release(&ptable.lock);
 
   return thread->pid;
-  
 
 }
 
@@ -324,6 +335,55 @@ wait(void)
         p->state = UNUSED;
         release(&ptable.lock);
         return pid;
+      }
+    }
+
+    // No point waiting if we don't have any children.
+    if(!havekids || curproc->killed){
+      release(&ptable.lock);
+      return -1;
+    }
+
+    // Wait for children to exit.  (See wakeup1 call in proc_exit.)
+    sleep(curproc, &ptable.lock);  //DOC: wait-sleep
+  }
+}
+
+
+int
+join(int threadid)
+{
+  struct proc *p;
+  int havekids, pid;
+  struct proc * curproc = myproc();
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if (p->isthread && p->pid == threadid)
+      curproc = p;
+  }
+  
+  acquire(&ptable.lock);
+  for(;;){
+    // Scan through table looking for exited children.
+    havekids = 0;
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if (p->isthread) {
+        if(p->parent != curproc)
+          continue;
+        havekids = 1;
+        if(p->state == ZOMBIE){
+          // Found one.
+          pid = p->pid;
+          kfree(p->kstack);
+          p->ustack = 0;
+          freevm(p->pgdir);
+          p->pid = 0;
+          p->parent = 0;
+          p->name[0] = 0;
+          p->killed = 0;
+          p->state = UNUSED;
+          release(&ptable.lock);
+          return pid;
+        }
       }
     }
 
