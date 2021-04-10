@@ -227,23 +227,26 @@ int clone(void(*fcn)(void *, void *), void *arg1, void *arg2, void *stack) {
   parent = myproc();
   if ((thread = allocproc()) == 0)
     return -1;
-  thread->sz = parent->sz;
-
-  int *ustack = stack + PGSIZE;
-  *(ustack - 3) = (uint)0xffffffff;
-  *(ustack - 2) = (uint)arg1;
-  *(ustack - 1) = (uint)arg2;
-
-  thread->ustack = stack;
-
-  thread->tf->ebp = (uint)(ustack - 3);
-  thread->tf->esp = (uint)(ustack - 3);
-  thread->tf->eip = (uint)fcn;
 
   thread->pgdir = parent->pgdir;
+  thread->sz = parent->sz;
+  thread->ustack = stack;
   thread->parent = parent;
+  *thread->tf = *parent->tf;  
+  int *ustack = stack + PGSIZE ;
+  
+  *(ustack - 3) = (uint)0xffffffff;
+  *(ustack - 2) = (uint)arg2;
+  *(ustack - 1) = (uint)arg1;
 
-  *thread->tf = *parent->tf;
+  
+  thread->tf->eax = 0;
+  thread->tf->ebp = (uint) ustack - 4;
+  thread->tf->esp = (uint) ustack - 4;
+  thread->tf->eip = (uint) fcn;
+
+
+  
 
   for(int i = 0; i < NOFILE; i++) {
     if (parent->ofile[i])
@@ -251,10 +254,10 @@ int clone(void(*fcn)(void *, void *), void *arg1, void *arg2, void *stack) {
   }
   thread->cwd = idup(parent->cwd);
   thread->isthread = 1;
+  safestrcpy(thread->name, parent->name, sizeof(parent->name));
   acquire(&ptable.lock);
   thread->state = RUNNABLE;
   release(&ptable.lock);
-
   return thread->pid;
 
 }
