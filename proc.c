@@ -357,10 +357,6 @@ join(int threadid)
   struct proc *p;
   int havekids, pid;
   struct proc * curproc = myproc();
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-    if (p->isthread && p->pid == threadid)
-      curproc = p;
-  }
   
   acquire(&ptable.lock);
   for(;;){
@@ -376,7 +372,6 @@ join(int threadid)
           pid = p->pid;
           kfree(p->kstack);
           p->ustack = 0;
-          freevm(p->pgdir);
           p->pid = 0;
           p->parent = 0;
           p->name[0] = 0;

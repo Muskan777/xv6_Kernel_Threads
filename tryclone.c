@@ -24,8 +24,7 @@ int main(int argc, char *argv[]) {
             exit();
         }
         int pid = clone(&fcn, (void *)a, (void *)b, pchild_stack);
-        int wid = wait();
-        printf(1, "\nWID is %d", wid);
+        join(pid);
         printf(1, "PID is %d   \n", pid);
         if ( pid < 0 ) {
             printf(1, "ERROR: Unable to create the child process.\n");

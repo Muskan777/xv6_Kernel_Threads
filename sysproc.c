@@ -103,3 +103,11 @@ int sys_clone(void) {
 
   return clone(fcn, arg1, arg2, stack);
 }
+
+
+int sys_join(void) {
+  int tid;
+  if(argint(0, &tid) < 0)
+    return -1;
+  return join(tid);
+}
