@@ -7,27 +7,34 @@
 
 void fcn(void *a, void *b) {
    printf(1, "In function\n");
-   printf(1, "A is - ");
+   printf(1, "\nA is - ");
    printf(1, "%d", (int)a);
-   printf(1, "B is - ");
-   printf(1, "%s", (int)b);
+   printf(1, "\nB is - ");
+   printf(1, "%s\n", (char *)b);
+   exit();
 }
 
 int main(int argc, char *argv[]) {
-    void *pchild_stack = malloc(4096*2);
     int a = 2;
-    int b = 3;
-    int pid = clone((void *)fcn, &a, (void *)b, pchild_stack);
-    printf(1, "%d\n", pid);
-    if ( pid < 0 ) {
-        printf(1, "ERROR: Unable to create the child process.\n");
-        exit();
-   }
+    char b[10] = "Manish";
+    for(int i = 0; i < 6; i++) {
+        void *pchild_stack = malloc(4096);
+        if (!pchild_stack) {
+            printf(1, "Malloc Failed");
+            exit();
+        }
+        int pid = clone(&fcn, (void *)a, (void *)b, pchild_stack);
+        int wid = wait();
+        printf(1, "\nWID is %d", wid);
+        printf(1, "PID is %d   \n", pid);
+        if ( pid < 0 ) {
+            printf(1, "ERROR: Unable to create the child process.\n");
+            exit();
+        }
+        free(pchild_stack);
 
-    wait();
-
-    free(pchild_stack);
-
-    printf(1, "INFO: Child process terminated.\n");
+        printf(1, "INFO: Child process terminated.\n");
+    }
+    
     exit();
 }

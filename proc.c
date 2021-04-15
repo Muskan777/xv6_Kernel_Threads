@@ -233,20 +233,19 @@ int clone(void(*fcn)(void *, void *), void *arg1, void *arg2, void *stack) {
   thread->ustack = stack;
   thread->parent = parent;
   *thread->tf = *parent->tf;  
-  int *ustack = stack + PGSIZE ;
-  
-  *(ustack - 3) = (uint)0xffffffff;
-  *(ustack - 2) = (uint)arg2;
-  *(ustack - 1) = (uint)arg1;
+  int ustack = (int)stack + PGSIZE;
+  int userstack[3];
+  userstack[0] = 0xffffffff;
+  userstack[1] = (uint)arg1;
+  userstack[2] = (uint)arg2;
+  ustack -= 12;
+  if (copyout(thread->pgdir, ustack, userstack, 12) < 0)
+    return -1;
 
-  
   thread->tf->eax = 0;
-  thread->tf->ebp = (uint) ustack - 4;
-  thread->tf->esp = (uint) ustack - 4;
+  thread->tf->ebp = (uint) ustack;
+  thread->tf->esp = (uint) ustack;
   thread->tf->eip = (uint) fcn;
-
-
-  
 
   for(int i = 0; i < NOFILE; i++) {
     if (parent->ofile[i])
@@ -259,7 +258,6 @@ int clone(void(*fcn)(void *, void *), void *arg1, void *arg2, void *stack) {
   thread->state = RUNNABLE;
   release(&ptable.lock);
   return thread->pid;
-
 }
 
 // Exit the current process.  Does not return.
