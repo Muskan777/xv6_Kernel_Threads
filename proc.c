@@ -367,11 +367,13 @@ join(int threadid)
         if(p->parent != curproc)
           continue;
         havekids = 1;
-        if(p->state == ZOMBIE){
+        if(p->state == ZOMBIE && p->pid == threadid){
           // Found one.
           pid = p->pid;
           kfree(p->kstack);
+          p->kstack = 0;
           p->ustack = 0;
+          p->pgdir = 0;
           p->pid = 0;
           p->parent = 0;
           p->name[0] = 0;
@@ -392,6 +394,11 @@ join(int threadid)
     // Wait for children to exit.  (See wakeup1 call in proc_exit.)
     sleep(curproc, &ptable.lock);  //DOC: wait-sleep
   }
+}
+
+int gettid() {
+  struct proc* thread = myproc();
+  return thread->pid;
 }
 
 //PAGEBREAK: 42
