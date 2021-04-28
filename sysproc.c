@@ -39,7 +39,7 @@ sys_kill(void)
 int
 sys_getpid(void)
 {
-  return myproc()->pid;
+  return myproc()->tgid;
 }
 
 int
@@ -92,6 +92,7 @@ sys_uptime(void)
 
 int sys_clone(void) {
   void *fcn, *arg1, *arg2, *stack;
+  int flags;
   if(argptr(0, (void *)&fcn, sizeof(void *)) < 0)
     return -1;
   if(argptr(1, (void *)&arg1, sizeof(void *)) < 0)
@@ -100,8 +101,10 @@ int sys_clone(void) {
     return -1;
   if(argptr(3, (void *)&stack, sizeof(void *)) < 0)
     return -1;
+  if(argint(4, &flags) < 0)
+    return -1;
 
-  return clone(fcn, arg1, arg2, stack);
+  return clone(fcn, arg1, arg2, stack, flags);
 }
 
 
@@ -110,4 +113,21 @@ int sys_join(void) {
   if(argint(0, &tid) < 0)
     return -1;
   return join(tid);
+}
+
+int sys_tgkill(void) {
+  int tgid, tid, signal;
+  if(argint(0, &tgid) < 0)
+    return -1;
+  if(argint(1, &tid) < 0)
+    return -1;
+  if(argint(2, &signal) < 0)
+    return -1;
+
+  return tgkill(tgid, tid, signal);
+}
+
+
+int sys_gettid(void) {
+  return myproc()->pid;
 }

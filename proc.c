@@ -6,6 +6,7 @@
 #include "x86.h"
 #include "proc.h"
 #include "spinlock.h"
+#include "thread.h"
 
 struct {
   struct spinlock lock;
@@ -199,6 +200,8 @@ fork(void)
   np->sz = curproc->sz;
   np->parent = curproc;
   *np->tf = *curproc->tf;
+  np->tgid = np->pid;
+  np->isthread = 0;
 
   // Clear %eax so that fork returns 0 in the child.
   np->tf->eax = 0;
@@ -221,17 +224,42 @@ fork(void)
   return pid;
 }
 
-int clone(void(*fcn)(void *, void *), void *arg1, void *arg2, void *stack) {
+int clone(void(*fcn)(void *, void *), void *arg1, void *arg2, void *stack, int flags) {
   struct proc *thread;
   struct proc *parent;
   parent = myproc();
+  int threadFlag=0, vmFlag=0, parentFlag = 0;
   if ((thread = allocproc()) == 0)
     return -1;
-
-  thread->pgdir = parent->pgdir;
+    
+  if(flags & CLONE_PARENT) {
+    thread->parent = parent->parent;
+    parentFlag = 1;
+  }
+  if(flags & CLONE_THREAD) {
+    thread -> tgid = parent -> pid;
+    threadFlag = 1;
+  } 
+  if(flags & CLONE_VM) {
+    thread->pgdir = parent->pgdir;
+    vmFlag = 1;
+  } 
+  if(!threadFlag) {
+    thread -> tgid = thread-> pid;
+  }
+  if(!vmFlag) {
+    if((thread->pgdir = copyuvm(parent->pgdir, parent->sz)) == 0){
+      kfree(thread->kstack);
+      thread->kstack = 0;
+      thread->state = UNUSED;
+      return -1;
+    }
+  }
+  if(!parentFlag) {
+    thread->parent = parent;
+  }
   thread->sz = parent->sz;
   thread->ustack = stack;
-  thread->parent = parent;
   *thread->tf = *parent->tf;  
   int ustack = (int)stack + PGSIZE;
   int userstack[3];
@@ -396,9 +424,21 @@ join(int threadid)
   }
 }
 
-int gettid() {
-  struct proc* thread = myproc();
-  return thread->pid;
+int tgkill(int tgid, int tid, int signal) {
+  struct proc* p;
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+    if (p->tgid == tgid && p->pid == tid) {
+      p->killed = 1;
+      // Wake process from sleep if necessary.
+      if(p->state == SLEEPING)
+        p->state = RUNNABLE;
+      release(&ptable.lock);
+      return 0;
+    }
+  }
+  release(&ptable.lock);
+  return -1;
 }
 
 //PAGEBREAK: 42
