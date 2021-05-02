@@ -288,6 +288,5 @@ tar:
 
 
 run:
-	chmod +x test.sh
-	./test.sh
+	make && echo "./tryclone" | make qemu
 
