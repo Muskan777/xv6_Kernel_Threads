@@ -91,7 +91,7 @@ sys_uptime(void)
 }
 
 int sys_clone(void) {
-  void *fcn, *arg1, *arg2, *stack;
+  void *fcn, *arg1, *stack, *arg2;
   int flags;
   if(argptr(0, (void *)&fcn, sizeof(void *)) < 0)
     return -1;
@@ -130,4 +130,8 @@ int sys_tgkill(void) {
 
 int sys_gettid(void) {
   return myproc()->pid;
+}
+
+int sys_getppid(void) {
+  return myproc()->parent->pid;
 }

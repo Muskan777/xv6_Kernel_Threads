@@ -6,7 +6,6 @@
 #include "x86.h"
 #include "proc.h"
 #include "spinlock.h"
-#include "thread.h"
 
 struct {
   struct spinlock lock;
@@ -228,26 +227,27 @@ int clone(void(*fcn)(void *, void *), void *arg1, void *arg2, void *stack, int f
   struct proc *thread;
   struct proc *parent;
   parent = myproc();
-  int threadFlag=0, vmFlag=0, parentFlag = 0;
   if ((thread = allocproc()) == 0)
     return -1;
     
   if(flags & CLONE_PARENT) {
     thread->parent = parent->parent;
-    parentFlag = 1;
   }
+  else {
+    thread->parent = parent;
+  }
+  
   if(flags & CLONE_THREAD) {
     thread -> tgid = parent -> pid;
-    threadFlag = 1;
   } 
-  if(flags & CLONE_VM) {
-    thread->pgdir = parent->pgdir;
-    vmFlag = 1;
-  } 
-  if(!threadFlag) {
+  else {
     thread -> tgid = thread-> pid;
   }
-  if(!vmFlag) {
+
+  if(flags & CLONE_VM) {
+    thread->pgdir = parent->pgdir;
+  } 
+  else {
     if((thread->pgdir = copyuvm(parent->pgdir, parent->sz)) == 0){
       kfree(thread->kstack);
       thread->kstack = 0;
@@ -255,9 +255,27 @@ int clone(void(*fcn)(void *, void *), void *arg1, void *arg2, void *stack, int f
       return -1;
     }
   }
-  if(!parentFlag) {
-    thread->parent = parent;
+
+  if (flags & CLONE_FS) {
+    thread->cwd = parent->cwd;
   }
+  else {
+    thread->cwd = idup(parent->cwd);
+  }
+
+  if (flags & CLONE_FILE) {
+    for(int i = 0; i < NOFILE; i++) {
+      if (parent->ofile[i])
+        thread->ofile[i] = parent->ofile[i];
+    }  
+  }
+  else {
+    for(int i = 0; i < NOFILE; i++) {
+      if (parent->ofile[i])
+        thread->ofile[i] = filedup(parent->ofile[i]);
+    }  
+  }
+
   thread->sz = parent->sz;
   thread->ustack = stack;
   *thread->tf = *parent->tf;  
@@ -279,7 +297,7 @@ int clone(void(*fcn)(void *, void *), void *arg1, void *arg2, void *stack, int f
     if (parent->ofile[i])
       thread->ofile[i] = filedup(parent->ofile[i]);
   }
-  thread->cwd = idup(parent->cwd);
+
   thread->isthread = 1;
   safestrcpy(thread->name, parent->name, sizeof(parent->name));
   acquire(&ptable.lock);
@@ -430,7 +448,6 @@ int tgkill(int tgid, int tid, int signal) {
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
     if (p->tgid == tgid && p->pid == tid) {
       p->killed = 1;
-      // Wake process from sleep if necessary.
       if(p->state == SLEEPING)
         p->state = RUNNABLE;
       release(&ptable.lock);

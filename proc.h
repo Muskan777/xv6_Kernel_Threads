@@ -1,4 +1,11 @@
 // Per-CPU state
+
+#define CLONE_THREAD 1
+#define CLONE_VM     2
+#define CLONE_FS     4
+#define CLONE_PARENT 8
+#define CLONE_FILE   16
+
 struct cpu {
   uchar apicid;                // Local APIC ID
   struct context *scheduler;   // swtch() here to enter scheduler

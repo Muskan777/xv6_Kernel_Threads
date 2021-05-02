@@ -7,7 +7,7 @@
 int pthread_create(void(*)(void *, void *), void *, void *, int);
 int pthread_join(int);
 int pthread_self();
-int pthread_equal();
+int pthread_equal(int, int);
 int pthread_kill(int, int, int);
 
 typedef struct thread {

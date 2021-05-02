@@ -4,15 +4,14 @@
 #include "thread.h"
 #include "param.h"
 
-thread th[20];
+thread th[120];
 int i = 0;
 
 int pthread_create(void(*fcn)(void *, void *), void *arg1, void *arg2, int flags) {
     void *stack = malloc(4096);
-    int pid = clone((void *)fcn, (void *)arg1, (void *)arg2,(void *) stack, flags);
+    int pid = clone((void *)fcn, (void *)arg1, (void *)arg2, (void *) stack, flags);
     if ( pid < 0 ) {
-         printf(1, "ERROR: Unable to create the child process.\n");
-         exit();
+        return pid;
     }
     th[i].tid = pid;
     th[i++].stack = stack;
@@ -34,6 +33,7 @@ int pthread_join(int threadid) {
         th[j].tid = th[j+1].tid;
         th[j].stack = th[j+1].stack;
     }
+    i--;
     return pid;
 }
 
